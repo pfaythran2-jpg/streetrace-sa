@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Street Legends SA — Spin Demo</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#080d12;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#hud{position:fixed;inset:0;pointer-events:none}
+.panel{background:linear-gradient(135deg,rgba(7,15,22,.88),rgba(12,28,38,.68));border:1px solid rgba(117,226,255,.28);border-radius:14px;backdrop-filter:blur(8px);padding:10px 14px;box-shadow:0 8px 30px #0005}
+#brand{position:absolute;left:14px;top:14px;font-weight:900;letter-spacing:1px;font-size:14px}#brand span{color:#58e5ff}
+#stats{position:absolute;right:14px;top:14px;text-align:right;min-width:118px;font-variant-numeric:tabular-nums}
+#speed{font-size:30px;font-weight:900;line-height:1}#unit{font-size:10px;color:#9cb4c3;letter-spacing:2px}
+#tip{position:absolute;left:50%;top:14px;transform:translateX(-50%);text-align:center;font-size:12px;color:#d9e9f0;white-space:nowrap}
+#message{position:absolute;left:50%;top:70px;transform:translateX(-50%);font-size:13px;font-weight:800;color:#6df0ff;text-shadow:0 2px 8px #000}
+#controls{position:absolute;bottom:18px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:end;gap:10px}
+.pad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:54px 54px;gap:6px;pointer-events:auto}
+.btn{border:1px solid #8deeff66;background:#0c202bd9;color:white;border-radius:14px;font-weight:800;font-size:18px;touch-action:none;user-select:none;box-shadow:0 4px 14px #0006}
+.btn:active,.btn.on{background:#1d8095}
+#rightControls{display:flex;gap:8px;pointer-events:auto;align-items:end}
+#rightControls .btn{width:62px;height:62px;font-size:12px}
+#handbrake{border-color:#ffb35c88;color:#ffd39b}
+#reset{position:absolute;right:14px;bottom:94px;width:62px;height:38px;font-size:11px;pointer-events:auto}
+#footer{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:10px;color:#9cb4c3;white-space:nowrap}
+@media(min-width:800px){.pad{grid-template-columns:repeat(3,64px);grid-template-rows:64px 64px}.btn{font-size:22px}#rightControls .btn{width:76px;height:76px}#tip{font-size:13px}}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="brand" class="panel">STREET LEGENDS <span>SA</span><br><small style="color:#a4bac8;font-weight:600;font-size:10px">SPIN TEST • EAST LONDON</small></div>
+  <div id="tip" class="panel">WASD / arrows to drive • SPACE handbrake • R reset</div>
+  <div id="stats" class="panel"><div id="speed">000</div><div id="unit">KM/H</div><div style="font-size:11px;color:#9cb4c3;margin-top:6px">DRIFT <b id="drift">0</b></div></div>
+  <div id="message">FIND YOUR ANGLE</div>
+  <button id="reset" class="btn">RESET</button>
+  <div id="controls">
+    <div class="pad">
+      <div></div><button class="btn" data-key="up">▲</button><div></div>
+      <button class="btn" data-key="left">◀</button><button class="btn" data-key="down">▼</button><button class="btn" data-key="right">▶</button>
+    </div>
+    <div id="rightControls">
+      <button class="btn" data-key="handbrake" id="handbrake">E-BRAKE</button>
+      <button class="btn" data-key="up">GAS</button>
+    </div>
+  </div>
+  <div id="footer">Prototype build • Original game concept • More features coming</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(() => {
+if(!window.THREE){document.body.innerHTML='<h2 style="padding:30px">Three.js could not load. Please connect to the internet and refresh.</h2>';return;}
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9ab8c8);scene.fog=new THREE.Fog(0x9ab8c8,90,260);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,500);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xdaf3ff,0x38402e,2.0));
+const sun=new THREE.DirectionalLight(0xfff0d6,3.0);sun.position.set(-45,75,30);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-90;sun.shadow.camera.right=90;sun.shadow.camera.top=90;sun.shadow.camera.bottom=-90;scene.add(sun);
+const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const asphalt=mat(0x30363b), concrete=mat(0x9c9b91), grass=mat(0x526b45), white=mat(0xe7e8de), yellow=mat(0xf2c84b), dark=mat(0x171b20), glass=mat(0x183442,.22,.4);
+function box(w,h,d,material,x,y,z,group=scene){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;group.add(o);return o}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(500,500),grass);ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
+// broad asphalt spinning pad and connecting road
+const road=new THREE.Mesh(new THREE.PlaneGeometry(190,190),asphalt);road.rotation.x=-Math.PI/2;road.position.y=0;road.receiveShadow=true;scene.add(road);
+const circle=new THREE.Mesh(new THREE.RingGeometry(17.8,18.25,96),yellow);circle.rotation.x=-Math.PI/2;circle.position.y=.025;scene.add(circle);
+const circle2=new THREE.Mesh(new THREE.RingGeometry(29.8,30.15,96),white);circle2.rotation.x=-Math.PI/2;circle2.position.y=.02;scene.add(circle2);
+for(let i=0;i<24;i++){let a=i*Math.PI/12;box(.35,.08,2.8,white,Math.cos(a)*24,.05,Math.sin(a)*24).rotation.y=-a;}
+for(let i=0;i<4;i++){const x=-70+i*46;box(1,.1,90,yellow,x,.06,0)}
+// roadside curbs and light poles
+for(let i=0;i<24;i++){let a=i*Math.PI/12;let x=Math.cos(a)*37,z=Math.sin(a)*37;box(1.2,.45,1.2,concrete,x,.22,z)}
+const poleMat=mat(0x252a2d,.55,.35), lampMat=new THREE.MeshStandardMaterial({color:0xffe8ac,emissive:0xffc66a,emissiveIntensity:1.2});
+for(let i=0;i<12;i++){let a=i*Math.PI/6,x=Math.cos(a)*58,z=Math.sin(a)*58;box(.35,7,.35,poleMat,x,3.5,z);box(2,.18,.35,poleMat,x+1,6.8,z);box(.8,.12,.28,lampMat,x+1,6.65,z);}
+ // low skyline blocks and SA-style roadside details
+const buildingMats=[mat(0xb9b2a5),mat(0x7f929b),mat(0xd2c6ad),mat(0x8c8d86),mat(0x52616b)];
+for(let i=0;i<34;i++){let a=i*2.399,r=88+(i%4)*15,x=Math.cos(a)*r,z=Math.sin(a)*r,w=8+(i%5)*2,h=7+(i%8)*3,d=8+(i%3)*3;box(w,h,d,buildingMats[i%buildingMats.length],x,h/2,z);for(let y=2;y<h-1;y+=2.5)for(let xx=-w/2+1;xx<w/2-1;xx+=2.5)box(.8,.8,.08,glass,x+xx,y,z-d/2-.05);}
+const signMat=mat(0x102c35);box(12,3,.35,signMat,0,5,-72);box(10,.25,.4,yellow,0,6.2,-72); 
+// car group, oriented forward along -Z
+const car=new THREE.Group();scene.add(car);
+const bodyMat=new THREE.MeshStandardMaterial({color:0x13a9c8,metalness:.72,roughness:.24});
+box(2.05,.62,4.15,bodyMat,0,.78,0,car);
+box(1.65,.65,1.9,glass,0,1.35,-.35,car);
+box(1.7,.12,1.9,dark,0,1.04,-.35,car);
+box(2.1,.16,.28,dark,0,.52,-2.02,car);box(2.1,.16,.28,dark,0,.52,2.02,car);
+for(let side of [-1,1]){box(.12,.16,.6,mat(0xffe9b0,.25),side*.82,.82,-2.08,car);box(.12,.16,.6,mat(0xff2638,.25),side*.82,.82,2.08,car);}
+const wheelMat=mat(0x090b0d,.95),rimMat=mat(0x9aa5aa,.25,.8);const wheels=[];
+for(let x of [-1.08,1.08])for(let z of [-1.35,1.35]){const pivot=new THREE.Group();pivot.position.set(x,.48,z);car.add(pivot);const tire=new THREE.Mesh(new THREE.CylinderGeometry(.43,.43,.28,20),wheelMat);tire.rotation.z=Math.PI/2;tire.castShadow=true;pivot.add(tire);const rim=new THREE.Mesh(new THREE.CylinderGeometry(.23,.23,.3,12),rimMat);rim.rotation.z=Math.PI/2;pivot.add(rim);wheels.push({pivot,tire,front:z<0});}
+car.position.set(0,0,0);
+// tire smoke particle pool
+const smokeMat=new THREE.MeshBasicMaterial({color:0xc9d1d4,transparent:true,opacity:.25,depthWrite:false});
+const particles=[];for(let i=0;i<110;i++){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.35+Math.random()*.45,7,6),smokeMat.clone());mesh.visible=false;scene.add(mesh);particles.push({mesh,life:0});}
+let pIndex=0;function puff(x,z){let p=particles[pIndex++%particles.length];p.life=1.6;p.mesh.visible=true;p.mesh.position.set(x,.3+Math.random()*.5,z);p.mesh.scale.setScalar(.6+Math.random());p.mesh.material.opacity=.25;}
+const keys={};addEventListener('keydown',e=>{let k=e.key.toLowerCase();keys[k]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();if(k==='r')reset();});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;const map={up:'w',down:'s',left:'a',right:'d',handbrake:' '};const actual=map[k]||k;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[actual]=true;b.classList.add('on');b.setPointerCapture(e.pointerId)});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>{keys[actual]=false;b.classList.remove('on')}));});
+document.getElementById('reset').addEventListener('click',reset);
+let speed=0,yaw=0,slip=0,driftScore=0,scoreTimer=0;
+function reset(){car.position.set(0,0,0);car.rotation.set(0,0,0);speed=0;yaw=0;slip=0;driftScore=0;document.getElementById('drift').textContent='0';}
+function down(...k){return k.some(x=>keys[x]);}
+const clock=new THREE.Clock();let lastMsg=0;
+function animate(){requestAnimationFrame(animate);let dt=Math.min(clock.getDelta(),.04);
+const gas=down('w','arrowup'),brake=down('s','arrowdown'),left=down('a','arrowleft'),right=down('d','arrowright'),hb=down(' ');
+if(gas)speed+=13*dt;if(brake)speed-=18*dt;if(!gas&&!brake)speed*=Math.pow(.985,dt*60);if(hb)speed*=Math.pow(.992,dt*60);speed=THREE.MathUtils.clamp(speed,-32,58);
+const steer=(right?1:0)-(left?1:0);const grip=hb?1.55:1; yaw+=steer*speed*.018*dt*grip;
+car.rotation.y=yaw;
+const forward=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw));car.position.addScaledVector(forward,speed*dt);
+slip=THREE.MathUtils.lerp(slip,steer*(hb?1.25:.38)*Math.min(Math.abs(speed)/20,1),dt*2.4);
+car.rotation.y+=slip*dt*.18;
+wheels.forEach(w=>{if(w.front)w.pivot.rotation.y=steer*.42;w.tire.rotation.x+=speed*dt*1.8;});
+if(Math.abs(slip)>.35&&Math.abs(speed)>8){driftScore+=Math.abs(slip)*Math.abs(speed)*dt*1.5;scoreTimer=1;for(let z of [-1.25,1.25]){let wp=new THREE.Vector3(z<0?-1:1,.4,z);wp.applyAxisAngle(new THREE.Vector3(0,1,0),yaw);puff(car.position.x+wp.x,car.position.z+wp.z);}}
+if(scoreTimer>0)scoreTimer-=dt;else driftScore=Math.max(0,driftScore-20*dt);
+document.getElementById('speed').textContent=String(Math.round(Math.abs(speed)*3.6)).padStart(3,'0');document.getElementById('drift').textContent=Math.floor(driftScore).toLocaleString();
+document.getElementById('message').textContent=hb?'HAND BRAKE • SEND IT':Math.abs(slip)>.35&&Math.abs(speed)>8?'SPINNING • '+Math.floor(driftScore)+' STYLE POINTS':'FIND YOUR ANGLE';
+particles.forEach(p=>{if(p.life>0){p.life-=dt;p.mesh.position.y+=dt*1.1;p.mesh.scale.multiplyScalar(1+dt*.55);p.mesh.material.opacity=Math.max(0,p.life/1.6*.24);if(p.life<=0)p.mesh.visible=false;}});
+// chase camera with smooth position and look target
+const target=new THREE.Vector3(car.position.x-forward.x*8,4.2,car.position.z-forward.z*8);camera.position.lerp(target,1-Math.pow(.001,dt));camera.lookAt(car.position.x,1.1,car.position.z);
+renderer.render(scene,camera);
+}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+})();
+</script>
+</body>
+</html>
